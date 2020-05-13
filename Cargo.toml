@@ -1,6 +1,6 @@
 [package]
 name = "air-quality-cli"
-version = "0.1.5"
+version = "0.1.6"
 authors = ["Debuglines"]
 edition = "2018"
 
