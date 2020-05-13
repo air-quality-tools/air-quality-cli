@@ -88,7 +88,7 @@ mod tests {
     #[test]
     fn test_parse_raw_helper() {
         let raw_data = "\nPress ctrl+C to exit program\n\nDevice serial number: 2930027508\n[\'Humidity\', \'Radon ST avg\', \'Radon LT avg\', \'Temperature\', \'Pressure\', \'CO2 level\', \'VOC level\']\n[\'22.5 %rH\', \'1 Bq/m3\', \'6 Bq/m3\', \'22.58 degC\', \'1022.08 hPa\', \'476.0 ppm\', \'152.0 ppb\']\n";
-        let sensor_data = parse_raw_sensor_data(chrono::Utc::now(), raw_data);
+        let sensor_data = parse_raw_sensor_data(chrono::Utc::now(), raw_data).unwrap();
 
         assert_eq!(sensor_data.humidity_in_percent().to_string(), "22.5");
         assert_eq!(sensor_data.radon_short_term_average().to_string(), "1");
