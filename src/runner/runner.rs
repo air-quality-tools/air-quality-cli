@@ -7,6 +7,7 @@ use log::info;
 use std::error::Error;
 use std::fs::{File, OpenOptions};
 use std::io::{ErrorKind, Read, Write};
+use std::num::ParseFloatError;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::process::Stdio;
@@ -18,17 +19,39 @@ use tempfile::NamedTempFile;
 const READER_SAMPLE_PERIOD_IN_SECONDS: u32 = 300;
 
 #[derive(Debug)]
-pub struct RunnerError;
+pub struct RunnerError {
+    pub message: Option<String>,
+}
+
+impl Default for RunnerError {
+    fn default() -> Self {
+        Self { message: None }
+    }
+}
+
+impl RunnerError {
+    pub fn new(message: String) -> Self {
+        Self {
+            message: Some(message),
+        }
+    }
+}
 
 impl From<std::io::Error> for RunnerError {
     fn from(_: std::io::Error) -> Self {
-        RunnerError
+        RunnerError::default()
     }
 }
 
 impl From<std::str::Utf8Error> for RunnerError {
     fn from(_: std::str::Utf8Error) -> Self {
-        RunnerError
+        RunnerError::default()
+    }
+}
+
+impl From<ParseFloatError> for RunnerError {
+    fn from(_: ParseFloatError) -> Self {
+        RunnerError::new("parse float error".to_string())
     }
 }
 
@@ -38,7 +61,13 @@ pub async fn fetch_sensor_data(
 ) -> Result<SensorData, RunnerError> {
     let sensor_data_raw = generate_sensor_data(python_executable_path, serial_number)?;
     let time_now = chrono::Utc::now();
-    Ok(parse_raw_sensor_data(time_now, &sensor_data_raw))
+
+    parse_raw_sensor_data(time_now, &sensor_data_raw).map_err(|_| {
+        RunnerError::new(format!(
+            "failed to parse raw sensor data: {}",
+            &sensor_data_raw
+        ))
+    })
 }
 
 pub fn fetch_sensor_data_sync(
@@ -47,7 +76,13 @@ pub fn fetch_sensor_data_sync(
 ) -> Result<SensorData, RunnerError> {
     let sensor_data_raw = generate_sensor_data_retry(python_executable_path, serial_number)?;
     let time_now = chrono::Utc::now();
-    Ok(parse_raw_sensor_data(time_now, &sensor_data_raw))
+
+    parse_raw_sensor_data(time_now, &sensor_data_raw).map_err(|_| {
+        RunnerError::new(format!(
+            "failed to parse raw sensor data: {}",
+            &sensor_data_raw
+        ))
+    })
 }
 
 pub struct Runner {
@@ -168,7 +203,9 @@ fn generate_sensor_data(
     let output_str = std::str::from_utf8(&output.stdout)?;
 
     if output_str.lines().count() <= 5 {
-        return Err(RunnerError);
+        return Err(RunnerError::new(
+            "Failed to get input from the python script".to_string(),
+        ));
     }
 
     Ok(output_str.to_string())
@@ -178,11 +215,28 @@ fn generate_sensor_data_retry(
     python_executable_path: &Path,
     serial_number: &u32,
 ) -> Result<String, RunnerError> {
-    if let Ok(sensor_data) = generate_sensor_data(python_executable_path, serial_number) {
-        Ok(sensor_data)
-    } else {
-        eprint!("Error when generating sensor data. Probably Bluetooth related so restarting the bluetooth service and trying again. ");
-        restart_bluetooth().unwrap();
-        generate_sensor_data(python_executable_path, serial_number)
+    let max_error_passes: u8 = 3;
+
+    for error_pass in 0..=max_error_passes {
+        if error_pass > 0 {
+            eprint!("Error when generating sensor data. Probably Bluetooth related so restarting the bluetooth service and trying again. ");
+            restart_bluetooth().unwrap();
+        }
+
+        let generated_sensor_data = generate_sensor_data(python_executable_path, serial_number);
+
+        if let Ok(sensor_data) = generated_sensor_data {
+            return Ok(sensor_data);
+        } else {
+            eprintln!(
+                "[GENERATE SENSOR DATA ERROR] {:#?}",
+                generated_sensor_data.err()
+            )
+        }
     }
+
+    Err(RunnerError::new(format!(
+        "Failed to generate sensor data. Stopped after {}",
+        max_error_passes
+    )))
 }

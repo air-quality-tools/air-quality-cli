@@ -1,9 +1,13 @@
+use crate::runner::runner::RunnerError;
 use crate::shared::types::sensor_data::SensorData;
+use std::error::Error;
+use std::num::ParseFloatError;
+use std::option;
 
 pub fn parse_raw_sensor_data(
     timestamp: chrono::DateTime<chrono::Utc>,
     raw_data: &str,
-) -> SensorData {
+) -> Result<SensorData, RunnerError> {
     let mut line: &str = raw_data.lines().skip(5).next().unwrap();
 
     let mut properties = line
@@ -11,15 +15,52 @@ pub fn parse_raw_sensor_data(
         .trim_end_matches("]")
         .split(",");
 
-    let humidity: f32 = trim_property(properties.next(), " %rH");
-    let radon_short_term_average: f32 = trim_property(properties.next(), " Bq/m3");
-    let radon_long_term_average: f32 = trim_property(properties.next(), " Bq/m3");
-    let temperature: f32 = trim_property(properties.next(), " degC");
-    let atmospheric_pressure: f32 = trim_property(properties.next(), " hPa");
-    let co2: f32 = trim_property(properties.next(), " ppm");
-    let voc: f32 = trim_property(properties.next(), " ppb");
+    let property_error_message = format!("property error. Input line: {}", &line);
 
-    SensorData::new(
+    let humidity: f32 = trim_property(
+        properties
+            .next()
+            .ok_or_else(|| RunnerError::new(property_error_message.clone()))?,
+        " %rH",
+    )?;
+    let radon_short_term_average: f32 = trim_property(
+        properties
+            .next()
+            .ok_or_else(|| RunnerError::new(property_error_message.clone()))?,
+        " Bq/m3",
+    )?;
+    let radon_long_term_average: f32 = trim_property(
+        properties
+            .next()
+            .ok_or_else(|| RunnerError::new(property_error_message.clone()))?,
+        " Bq/m3",
+    )?;
+    let temperature: f32 = trim_property(
+        properties
+            .next()
+            .ok_or_else(|| RunnerError::new(property_error_message.clone()))?,
+        " degC",
+    )?;
+    let atmospheric_pressure: f32 = trim_property(
+        properties
+            .next()
+            .ok_or_else(|| RunnerError::new(property_error_message.clone()))?,
+        " hPa",
+    )?;
+    let co2: f32 = trim_property(
+        properties
+            .next()
+            .ok_or_else(|| RunnerError::new(property_error_message.clone()))?,
+        " ppm",
+    )?;
+    let voc: f32 = trim_property(
+        properties
+            .next()
+            .ok_or_else(|| RunnerError::new(property_error_message.clone()))?,
+        " ppb",
+    )?;
+
+    Ok(SensorData::new(
         timestamp,
         temperature,
         humidity,
@@ -28,18 +69,16 @@ pub fn parse_raw_sensor_data(
         voc,
         radon_short_term_average,
         radon_long_term_average,
-    )
+    ))
 }
 
-fn trim_property(input: Option<&str>, remove_unit: &str) -> f32 {
+fn trim_property(input: &str, remove_unit: &str) -> Result<f32, ParseFloatError> {
     input
-        .unwrap()
         .trim()
         .trim_start_matches("'")
         .trim_end_matches("'")
         .trim_end_matches(remove_unit)
         .parse()
-        .unwrap()
 }
 
 #[cfg(test)]

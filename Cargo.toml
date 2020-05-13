@@ -1,8 +1,12 @@
 [package]
 name = "air-quality-cli"
-version = "0.1.6"
+version = "0.1.7"
 authors = ["Debuglines"]
 edition = "2018"
+
+[package.metadata.commands]
+compile-rpi3 = "cross build --release --target arm-unknown-linux-gnueabihf"
+compile-rpi-zero = "cross build --release --target arm-unknown-linux-musleabi"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -15,3 +19,4 @@ tui = {version = "0.9.4", default-features = false, features=["crossterm"]}
 crossterm = "0.17.4"
 chrono = "0.4.11"
 tempfile = "3.1.0"
+

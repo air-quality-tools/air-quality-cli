@@ -42,6 +42,11 @@ jobs:
         release_name: Release ${{ github.ref }}
         draft: true
         prerelease: false
+        body: |
+          1. Download the relevant cli to your Raspberry Pi
+          2. (OPTIONAL) Rename the file to `air-quality-cli`
+          3. Chmod the file to make it an executable: `chmod +x <filepath>`
+          4. Run the file. The serial number is underneath the back plate.
     # UPLOAD arm-unknown-linux-gnueabihf
     - name: Upload Release Asset
       id: upload-release-asset_arm-unknown-linux-gnueabihf
