@@ -51,12 +51,12 @@ mod tests {
         let raw_data = "\nPress ctrl+C to exit program\n\nDevice serial number: 2930027508\n[\'Humidity\', \'Radon ST avg\', \'Radon LT avg\', \'Temperature\', \'Pressure\', \'CO2 level\', \'VOC level\']\n[\'22.5 %rH\', \'1 Bq/m3\', \'6 Bq/m3\', \'22.58 degC\', \'1022.08 hPa\', \'476.0 ppm\', \'152.0 ppb\']\n";
         let sensor_data = parse_raw_sensor_data(chrono::Utc::now(), raw_data);
 
-        assert_eq!(sensor_data.humidity_in_percent(), &22.5);
-        assert_eq!(sensor_data.radon_short_term_average(), &1.0);
-        assert_eq!(sensor_data.radon_long_term_average(), &6.0);
-        assert_eq!(sensor_data.temperature_in_celsius(), &22.58);
-        assert_eq!(sensor_data.atmospheric_pressure(), &1022.08);
-        assert_eq!(sensor_data.co2(), &476.0);
-        assert_eq!(sensor_data.voc(), &152.0);
+        assert_eq!(sensor_data.humidity_in_percent().to_string(), "22.5");
+        assert_eq!(sensor_data.radon_short_term_average().to_string(), "1");
+        assert_eq!(sensor_data.radon_long_term_average().to_string(), "6");
+        assert_eq!(sensor_data.temperature_in_celsius().to_string(), "22.58");
+        assert_eq!(sensor_data.atmospheric_pressure().to_string(), "1022.08");
+        assert_eq!(sensor_data.co2().to_string(), "476");
+        assert_eq!(sensor_data.voc().to_string(), "152");
     }
 }
