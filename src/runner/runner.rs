@@ -108,12 +108,12 @@ impl Runner {
     }
 
     pub fn run(&self) {
-        let is_sudo = running_as_privileged_user_check();
-
-        if is_sudo == false {
-            eprintln!("Sudo not detected. This program needs to run as sudo because it needs bluetooth access. Restart with 'sudo !!'. ");
-            return;
-        }
+        // let is_sudo = running_as_privileged_user_check();
+        //
+        // if is_sudo == false {
+        //     eprintln!("Sudo not detected. This program needs to run as sudo because it needs bluetooth access. Restart with 'sudo !!'. ");
+        //     return;
+        // }
 
         info!(
             "Running Airthings sensor data for devices with serial number: {:?}",
@@ -206,14 +206,14 @@ fn generate_sensor_data(
     python_executable_path: &Path,
     serial_number: &u32,
 ) -> Result<String, RunnerError> {
-    let mut reader_process = Command::new("python")
+    let mut reader_process = Command::new("sudo")
         // .stdin(Stdio::null())
         .stdout(Stdio::piped())
         // .stderr(Stdio::inherit())
         // .env_clear() // TODO: LANG=en_US.UTF-8, PYTHONIOENCODING=utf-8
-        // .arg("-k")
-        // .arg("--")
-        // .arg("python")
+        .arg("-k")
+        .arg("--")
+        .arg("python")
         .arg(python_executable_path)
         // .arg("./read_waveplus.py")
         .arg(serial_number.to_string())
