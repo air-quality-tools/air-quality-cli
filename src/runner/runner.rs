@@ -2,6 +2,7 @@ use crate::runner::bluetooth::restart_bluetooth;
 use crate::runner::parser::parse_raw_sensor_data;
 use crate::runner::python_dependency::create_python_file;
 use crate::shared::types::sensor_data::SensorData;
+use crate::utils::timeout;
 use chrono::prelude::*;
 use log::info;
 use std::error::Error;
@@ -88,7 +89,7 @@ pub fn fetch_sensor_data_sync(
 pub struct Runner {
     output_dir_path: PathBuf,
     python_executable: tempfile::NamedTempFile,
-    devices_serial_number: Vec<u32>,
+    device_serial_number: u32,
 }
 
 impl Runner {
@@ -98,7 +99,7 @@ impl Runner {
         Ok(Runner {
             output_dir_path,
             python_executable,
-            devices_serial_number: vec![serial_number],
+            device_serial_number: serial_number,
         })
     }
 
@@ -107,35 +108,43 @@ impl Runner {
     }
 
     pub fn run(&self) {
+        let is_sudo = running_as_privileged_user_check();
+
+        if is_sudo == false {
+            eprintln!("Sudo not detected. This program needs to run as sudo because it needs bluetooth access. Restart with 'sudo !!'. ");
+            return;
+        }
+
         info!(
             "Running Airthings sensor data for devices with serial number: {:?}",
-            self.devices_serial_number
+            self.device_serial_number
         );
         info!(
             "Sensor data will be added to dir: {:?}",
             self.output_dir_path
         );
+        let device_serial_number = self.device_serial_number;
         loop {
-            self.devices_serial_number
-                .iter()
-                .for_each(|device_serial_number| {
-                    let sensor_data_raw =
-                        fetch_sensor_data_sync(self.python_executable_path(), device_serial_number);
+            let sensor_data_raw =
+                fetch_sensor_data_sync(self.python_executable_path(), &device_serial_number);
 
-                    if let Err(error) = &sensor_data_raw {
-                        eprintln!(
-                            "[{}][serial number: {}] Could not fetch sensor data. Is bluetooth enabled/on? Error: {:?}",
-                            chrono::Utc::now(),
-                            device_serial_number,
-                            error
-                        );
-                    }
+            if let Err(error) = &sensor_data_raw {
+                eprintln!(
+                    "[{}][serial number: {}] Could not fetch sensor data. Is bluetooth enabled/on? Error: {:?}",
+                    chrono::Utc::now(),
+                    device_serial_number,
+                    error
+                );
+            }
 
-                    if let Ok(sensor_data) = sensor_data_raw {
-                        println!("[serial number: {}] {}", device_serial_number, sensor_data.to_csv());
-                        self.create_or_append_sensor_data_file(sensor_data, device_serial_number);
-                    }
-                });
+            if let Ok(sensor_data) = sensor_data_raw {
+                println!(
+                    "[serial number: {}] {}",
+                    device_serial_number,
+                    sensor_data.to_csv()
+                );
+                self.create_or_append_sensor_data_file(sensor_data, &device_serial_number);
+            }
             sleep(Duration::from_secs(60 * 5))
         }
     }
@@ -172,43 +181,72 @@ impl Runner {
                             format!("{}\n", sensor_data.to_csv_with_header(device_serial_number))
                                 .as_bytes(),
                         )
-                    });
+                    })
+                    .unwrap()
+                    .unwrap();
             }
             Err(_) => {}
         };
     }
 }
 
-fn append_data_to_file(filepath: &Path, data: String) {}
+fn running_as_privileged_user_check() -> bool {
+    let output = Command::new("id")
+        .stdout(Stdio::piped())
+        .arg("-u")
+        .spawn()
+        .unwrap()
+        .wait_with_output()
+        .unwrap();
+
+    std::str::from_utf8(&output.stdout).unwrap().trim() == "0"
+}
 
 fn generate_sensor_data(
     python_executable_path: &Path,
     serial_number: &u32,
 ) -> Result<String, RunnerError> {
-    let mut reader_process = Command::new("sudo")
+    let mut reader_process = Command::new("python")
         // .stdin(Stdio::null())
         .stdout(Stdio::piped())
         // .stderr(Stdio::inherit())
         // .env_clear() // TODO: LANG=en_US.UTF-8, PYTHONIOENCODING=utf-8
-        .arg("-k")
-        .arg("--")
-        .arg("python")
+        // .arg("-k")
+        // .arg("--")
+        // .arg("python")
         .arg(python_executable_path)
         // .arg("./read_waveplus.py")
         .arg(serial_number.to_string())
         .arg(READER_SAMPLE_PERIOD_IN_SECONDS.to_string())
         .spawn()?;
 
-    let output = reader_process.wait_with_output()?;
-    let output_str = std::str::from_utf8(&output.stdout)?;
+    return smol::run(async {
+        let output = timeout(Duration::from_secs(10), async {
+            reader_process.wait_with_output()
+        })
+        .await?;
 
-    if output_str.lines().count() <= 5 {
-        return Err(RunnerError::new(
-            "Failed to get input from the python script".to_string(),
-        ));
-    }
+        let output_str = std::str::from_utf8(&output.stdout)?;
 
-    Ok(output_str.to_string())
+        if output_str.lines().count() <= 5 {
+            return Err(RunnerError::new(
+                "Failed to get input from the python script".to_string(),
+            ));
+        }
+
+        Ok(output_str.to_string())
+    });
+
+    // let output = reader_process.wait_with_output()?;
+    // let output_str = std::str::from_utf8(&output.stdout)?;
+    //
+    // if output_str.lines().count() <= 5 {
+    //     return Err(RunnerError::new(
+    //         "Failed to get input from the python script".to_string(),
+    //     ));
+    // }
+    //
+    // Ok(output_str.to_string())
 }
 
 fn generate_sensor_data_retry(
@@ -219,8 +257,10 @@ fn generate_sensor_data_retry(
 
     for error_pass in 0..=max_error_passes {
         if error_pass > 0 {
-            eprint!("Error when generating sensor data. Probably Bluetooth related so restarting the bluetooth service and trying again. ");
+            eprintln!("Error when generating sensor data. Probably Bluetooth related so restarting the bluetooth service and trying again. ");
             restart_bluetooth().unwrap();
+            eprintln!("Will wait for {} seconds", error_pass);
+            sleep(Duration::from_secs(error_pass as u64))
         }
 
         let generated_sensor_data = generate_sensor_data(python_executable_path, serial_number);

@@ -1,6 +1,8 @@
 mod dashboard_terminal;
+mod device;
 mod runner;
 mod shared;
+mod utils;
 
 use dashboard_terminal::start_gui;
 use dirs;
