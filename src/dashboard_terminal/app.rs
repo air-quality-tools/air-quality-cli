@@ -115,7 +115,8 @@ impl<B: Backend> App<B> {
     fn on_tick(&mut self) {
         if self.tick_countdown_to_fetch_data == 0 {
             self.update_data();
-            self.tick_countdown_to_fetch_data = 60 * 5;
+            // fetch new file every minute
+            self.tick_countdown_to_fetch_data = 60;
         }
 
         self.tick_countdown_to_fetch_data -= 1;

@@ -1,6 +1,6 @@
 use crate::shared::types::sensor_data::SensorData;
 use crate::shared::types::sensor_quality::SensorQuality;
-use chrono::Local;
+use chrono::{Local, Utc};
 use std::borrow::Cow;
 use tui::backend::Backend;
 use tui::layout::{Constraint, Direction, Layout, Rect};
@@ -76,6 +76,13 @@ pub fn dashboard_sensor_data<B: Backend>(frame: &mut Frame<B>, sensor_data: &Sen
                 .with_timezone(&Local)
                 .format("%Y-%m-%d %H:%M")
         )),
+        Text::raw("   "),
+        {
+            let start = sensor_data.timestamp().with_timezone(&Local);
+            let end = Utc::now().with_timezone(&Local);
+            let diff = end - start;
+            Text::raw(format!("[ {} minutes ago ]", diff.num_minutes()))
+        },
     ];
 
     let paragraph = Paragraph::new(text.iter()).block(block).wrap(true);
@@ -179,195 +186,3 @@ fn sensor_quality_into_color(sensor_quality: &SensorQuality) -> Color {
         SensorQuality::DependsOnContext => Color::LightBlue,
     }
 }
-
-// use crate::gui::app::Message;
-// use crate::runner::types::SensorData;
-// use chrono::{DateTime, Local, TimeZone};
-// use iced::{Align, Color, Column, Container, Element, Length, Row, Text, VerticalAlignment};
-// use std::fmt::{Display, Formatter};
-//
-// #[derive(PartialEq, Eq)]
-// pub enum SensorQuality {
-//     Good,
-//     Bad,
-//     Terrible,
-// }
-//
-// impl SensorQuality {
-//     fn text(&self) -> &str {
-//         match *self {
-//             SensorQuality::Good => "GOOD",
-//             SensorQuality::Bad => "BAD",
-//             SensorQuality::Terrible => "TERRIBLE",
-//         }
-//     }
-//
-//     fn color(&self) -> Color {
-//         match *self {
-//             SensorQuality::Good => Color::from_rgb(0.0, 0.8, 0.0),
-//             SensorQuality::Bad => Color::from_rgb(1.0, 0.6, 0.0),
-//             SensorQuality::Terrible => Color::from_rgb(1.0, 0.0, 0.0),
-//         }
-//     }
-// }
-//
-// const TEMPERATURE_UNIT: &str = "C";
-// const RADON_UNIT: &str = "Bq/m3";
-// const HUMIDITY_UNIT: &str = "%";
-// const CO2_UNIT: &str = "ppm";
-// const VOC_UNIT: &str = "ppb";
-// const PRESSURE: &str = "mbar";
-//
-// pub fn sensor_item<'a>(
-//     label: &str,
-//     value: &str,
-//     unit: &str,
-//     value_quality: &SensorQuality,
-// ) -> Element<'a, Message> {
-//     let quality_text = value_quality.text();
-//
-//     Container::new(
-//         Column::new()
-//             .align_items(Align::Center)
-//             .push(Text::new(label).size(20))
-//             .push(
-//                 Row::new()
-//                     .push(
-//                         Text::new(value)
-//                             .size(30)
-//                             .height(Length::Units(40))
-//                             .vertical_alignment(VerticalAlignment::Center),
-//                     )
-//                     .push(Text::new("").width(Length::Units(6)))
-//                     .push(
-//                         Text::new(unit)
-//                             .size(20)
-//                             .height(Length::Units(40))
-//                             .vertical_alignment(VerticalAlignment::Center),
-//                     ),
-//             )
-//             .push(
-//                 Text::new(quality_text)
-//                     .size(20)
-//                     .color(value_quality.color()),
-//             ),
-//     )
-//     .width(Length::Units(100))
-//     .center_x()
-//     .into()
-// }
-//
-// pub fn current_sensor_data_screen<'a>(sensor_data: Option<&SensorData>) -> Element<'a, Message> {
-//     if sensor_data.is_none() {
-//         return Container::new(
-//             Column::new()
-//                 .width(Length::Fill)
-//                 .align_items(Align::Center)
-//                 .push(
-//                     Text::new("Air quality Dashboard")
-//                         .size(40)
-//                         .height(Length::Units(50)),
-//                 )
-//                 .push(Text::new("No sensor data. Either loading or had an error")),
-//         )
-//         .width(Length::Fill)
-//         .height(Length::Fill)
-//         .center_x()
-//         .center_y()
-//         .into();
-//     }
-//
-//     let sensor_data = sensor_data.unwrap();
-//
-//     Container::new(
-//         Column::new()
-//             .width(Length::Fill)
-//             .align_items(Align::Center)
-//             .push(
-//                 Text::new("Air quality Dashboard")
-//                     .size(40)
-//                     .height(Length::Units(50)),
-//             )
-//             .push(Text::new("Overall air quality"))
-//             .push(
-//                 Container::new({
-//                     let quality = sensor_data.worst_sensor_quality();
-//                     Text::new(quality.text()).size(30).color(quality.color())
-//                 })
-//                 .padding(10),
-//             )
-//             .push(
-//                 Container::new(
-//                     Row::new()
-//                         .spacing(20)
-//                         .width(Length::Fill)
-//                         // .align_items(Align::End)
-//                         .push(sensor_item(
-//                             "RADON",
-//                             sensor_data.radon_short_term_average().to_string().as_str(),
-//                             RADON_UNIT.to_string().as_str(),
-//                             &sensor_data.radon_quality(),
-//                         ))
-//                         .push(sensor_item(
-//                             "TVOC",
-//                             sensor_data.voc().to_string().as_str(),
-//                             VOC_UNIT,
-//                             &sensor_data.voc_quality(),
-//                         ))
-//                         .push(sensor_item(
-//                             "CO2",
-//                             sensor_data.co2().to_string().as_str(),
-//                             CO2_UNIT,
-//                             &sensor_data.co2_quality(),
-//                         )),
-//                 )
-//                 .padding(20),
-//             )
-//             .push(
-//                 // Container::new(
-//                 Row::new()
-//                     .spacing(20)
-//                     // .width(Length::Fill)
-//                     // .align_items(Align::End)
-//                     .push(sensor_item(
-//                         "HUMIDITY",
-//                         sensor_data.humidity_in_percent().to_string().as_str(),
-//                         HUMIDITY_UNIT,
-//                         &sensor_data.humidity_quality(),
-//                     ))
-//                     .push(sensor_item(
-//                         "TEMP",
-//                         sensor_data.temperature_in_celsius().to_string().as_str(),
-//                         TEMPERATURE_UNIT,
-//                         &sensor_data.temperature_quality(),
-//                     ))
-//                     .push(sensor_item(
-//                         "PRESSURE",
-//                         sensor_data.atmospheric_pressure().to_string().as_str(),
-//                         PRESSURE,
-//                         &sensor_data.atmospheric_pressure_quality(),
-//                     )),
-//                 // )
-//                 // .padding(20)
-//                 // .center_x()
-//                 // .width(Length::Fill)
-//                 // .height(Length::Fill),
-//             )
-//             .push(
-//                 Text::new(format!(
-//                     "Last checked at: {}",
-//                     sensor_data
-//                         .timestamp()
-//                         .with_timezone(&Local)
-//                         .format("%Y-%m-%d %H:%M")
-//                 ))
-//                 .height(Length::Units(60))
-//                 .vertical_alignment(VerticalAlignment::Bottom),
-//             ),
-//     )
-//     .width(Length::Fill)
-//     .height(Length::Fill)
-//     .center_x()
-//     .center_y()
-//     .into()
-// }
