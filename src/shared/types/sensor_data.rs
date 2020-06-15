@@ -77,76 +77,44 @@ impl SensorData {
 /// Quality
 impl SensorData {
     pub fn temperature_quality(&self) -> SensorQuality {
-        match self.temperature_in_celsius as u32 {
-            v if v > 25 => SensorQuality::Terrible,
-            18..=25 => SensorQuality::Bad,
-            v if v < 25 => SensorQuality::Good,
-            _ => panic!("We should have covered all number variations"),
-        }
+        SensorQuality::temperature_quality(self.temperature_in_celsius.round() as i32)
     }
 
     pub fn humidity_quality(&self) -> SensorQuality {
-        match self.humidity_in_percent as u32 {
-            v if v >= 70 => SensorQuality::Terrible,
-            60..=69 => SensorQuality::Bad,
-            30..=59 => SensorQuality::Good,
-            25..=29 => SensorQuality::Bad,
-            v if v < 25 => SensorQuality::Terrible,
-            _ => panic!("We should have covered all number variations"),
-        }
+        SensorQuality::humidity_quality(self.humidity_in_percent.round() as u32)
     }
 
     pub fn atmospheric_pressure_quality(&self) -> SensorQuality {
-        SensorQuality::Good
+        SensorQuality::atmospheric_pressure_quality(self.atmospheric_pressure.round() as u32)
     }
 
     pub fn co2_quality(&self) -> SensorQuality {
-        match self.co2 as u32 {
-            v if v >= 1000 => SensorQuality::Terrible,
-            800..=999 => SensorQuality::Bad,
-            v if v < 800 => SensorQuality::Good,
-            _ => panic!("We should have covered all number variations"),
-        }
+        SensorQuality::co2_quality(self.co2.round() as u32)
     }
 
     pub fn voc_quality(&self) -> SensorQuality {
-        match self.voc as u32 {
-            v if v >= 2000 => SensorQuality::Terrible,
-            250..=1999 => SensorQuality::Bad,
-            v if v < 250 => SensorQuality::Good,
-            _ => panic!("We should have covered all number variations"),
-        }
+        SensorQuality::voc_quality(self.voc.round() as u32)
     }
 
-    pub fn radon_quality(&self) -> SensorQuality {
-        match self.radon_short_term_average as u32 {
-            v if v >= 150 => SensorQuality::Terrible,
-            100..=149 => SensorQuality::Bad,
-            v if v < 100 => SensorQuality::Good,
-            _ => panic!("We should have covered all number variations"),
-        }
+    pub fn radon_short_term_quality(&self) -> SensorQuality {
+        SensorQuality::radon_quality(self.radon_short_term_average.round() as u32)
+    }
+
+    pub fn radon_long_term_quality(&self) -> SensorQuality {
+        SensorQuality::radon_quality(self.radon_long_term_average.round() as u32)
     }
 
     pub fn worst_sensor_quality(&self) -> SensorQuality {
         let list = vec![
             self.temperature_quality(),
-            self.radon_quality(),
+            self.radon_short_term_quality(),
             self.voc_quality(),
             self.humidity_quality(),
             self.co2_quality(),
             self.atmospheric_pressure_quality(),
         ];
 
-        if list
-            .iter()
-            .any(|quality| quality == &SensorQuality::Terrible)
-        {
-            SensorQuality::Terrible
-        } else if list.iter().any(|quality| quality == &SensorQuality::Bad) {
-            SensorQuality::Bad
-        } else {
-            SensorQuality::Good
-        }
+        SensorQuality::worst_sensor_quality(list)
     }
 }
 

@@ -100,7 +100,7 @@ where
         sensor_item_value(
             &sensor_data.radon_short_term_average(),
             "Bq/m3",
-            sensor_data.radon_quality(),
+            sensor_data.radon_short_term_quality(),
         ),
         sensor_item_value(&sensor_data.voc(), "ppb", sensor_data.voc_quality()),
         sensor_item_value(&sensor_data.co2(), "ppm", sensor_data.co2_quality()),
@@ -120,7 +120,7 @@ where
             sensor_data.atmospheric_pressure_quality(),
         ),
         Text::raw("\n"),
-        sensor_item_quality(sensor_data.radon_quality()),
+        sensor_item_quality(sensor_data.radon_short_term_quality()),
         sensor_item_quality(sensor_data.voc_quality()),
         sensor_item_quality(sensor_data.co2_quality()),
         sensor_item_quality(sensor_data.humidity_quality()),
@@ -167,6 +167,7 @@ fn sensor_quality_into_text(sensor_quality: &SensorQuality) -> &str {
         SensorQuality::Good => "GOOD",
         SensorQuality::Bad => "BAD",
         SensorQuality::Terrible => "TERRIBLE",
+        SensorQuality::DependsOnContext => "DEPENDS",
     }
 }
 
@@ -175,6 +176,7 @@ fn sensor_quality_into_color(sensor_quality: &SensorQuality) -> Color {
         SensorQuality::Good => Color::Green,
         SensorQuality::Bad => Color::Yellow,
         SensorQuality::Terrible => Color::Red,
+        SensorQuality::DependsOnContext => Color::Blue,
     }
 }
 
