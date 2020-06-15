@@ -1,6 +1,4 @@
-use std::io;
 use std::io::Error;
-use tui::Terminal;
 
 pub type AppErrorResult<T> = Result<T, AppError>;
 

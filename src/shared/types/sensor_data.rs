@@ -1,11 +1,13 @@
 use crate::shared::types::sensor_quality::SensorQuality;
-use chrono::TimeZone;
-use std::iter;
+use chrono::{DateTime, Utc};
+
 use std::str::FromStr;
+
+type DateTimeUtc = DateTime<Utc>;
 
 #[derive(Debug, Clone)]
 pub struct SensorData {
-    timestamp: chrono::DateTime<chrono::Utc>,
+    timestamp: DateTimeUtc,
     temperature_in_celsius: f32,
     humidity_in_percent: f32,
     atmospheric_pressure: f32,
@@ -15,17 +17,31 @@ pub struct SensorData {
     radon_long_term_average: f32,
 }
 
+#[derive(Debug, Clone)]
+pub struct SensorDataBuilder {
+    pub timestamp: DateTimeUtc,
+    pub temperature_in_celsius: f32,
+    pub humidity_in_percent: f32,
+    pub atmospheric_pressure: f32,
+    pub co2: f32,
+    pub voc: f32,
+    pub radon_short_term_average: f32,
+    pub radon_long_term_average: f32,
+}
+
 impl SensorData {
-    pub fn new(
-        timestamp: chrono::DateTime<chrono::Utc>,
-        temperature_in_celsius: f32,
-        humidity_in_percent: f32,
-        atmospheric_pressure: f32,
-        co2: f32,
-        voc: f32,
-        radon_short_term_average: f32,
-        radon_long_term_average: f32,
-    ) -> SensorData {
+    pub fn new(builder: SensorDataBuilder) -> SensorData {
+        let SensorDataBuilder {
+            timestamp,
+            temperature_in_celsius,
+            humidity_in_percent,
+            atmospheric_pressure,
+            co2,
+            voc,
+            radon_short_term_average,
+            radon_long_term_average,
+        } = builder;
+
         SensorData {
             timestamp,
             temperature_in_celsius,
@@ -39,9 +55,15 @@ impl SensorData {
     }
 }
 
+impl From<SensorDataBuilder> for SensorData {
+    fn from(builder: SensorDataBuilder) -> Self {
+        Self::new(builder)
+    }
+}
+
 /// Getters
 impl SensorData {
-    pub fn timestamp(&self) -> &chrono::DateTime<chrono::Utc> {
+    pub fn timestamp(&self) -> &DateTimeUtc {
         &self.timestamp
     }
 
@@ -146,7 +168,7 @@ impl SensorData {
 
     pub fn from_csv_line(csv_line: &str) -> Option<Self> {
         let mut splitted_data = csv_line.split(",");
-        let timestamp: chrono::DateTime<chrono::Utc> =
+        let timestamp: DateTimeUtc =
             chrono::DateTime::from_str(splitted_data.next().unwrap()).unwrap();
 
         Some(Self {

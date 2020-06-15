@@ -1,5 +1,5 @@
 use crate::runner::runner::RunnerErrorResult;
-use std::error::Error;
+
 use std::path::PathBuf;
 
 mod bluetooth;

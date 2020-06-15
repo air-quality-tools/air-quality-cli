@@ -5,16 +5,15 @@ use crate::dashboard_terminal::widgets::{
 use crate::shared::types::sensor_data::SensorData;
 use crossterm::event;
 use crossterm::event::Event as CEvent;
-use crossterm::event::KeyCode;
+
 use std::path::PathBuf;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 use std::{io, thread};
-use tui::backend::{Backend, CrosstermBackend};
-use tui::layout::{Constraint, Direction, Layout};
-use tui::widgets::{Block, Borders};
-use tui::Terminal;
+use tui::backend::Backend;
+
 use crate::dashboard_terminal::app_error::AppErrorResult;
+use tui::Terminal;
 
 #[derive(Debug)]
 pub enum AppState {

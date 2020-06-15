@@ -8,7 +8,7 @@ mod widgets;
 
 use crate::dashboard_terminal::app::App;
 use crate::dashboard_terminal::app_error::AppErrorResult;
-use std::error::Error;
+
 use std::path::PathBuf;
 
 pub fn start_gui(data_dir_path: PathBuf) -> AppErrorResult<()> {

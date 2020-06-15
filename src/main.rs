@@ -4,8 +4,7 @@ mod runner;
 mod shared;
 
 use dashboard_terminal::start_gui;
-use dirs;
-use flexi_logger::{opt_format, Age, Cleanup, Criterion, Duplicate, LogTarget, Naming};
+use flexi_logger::{opt_format, Age, Cleanup, Criterion, Duplicate, Naming};
 use runner::start_data_generator;
 use std::error::Error;
 use std::fs;

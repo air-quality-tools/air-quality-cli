@@ -1,8 +1,6 @@
 use crate::runner::runner::RunnerError;
-use crate::shared::types::sensor_data::SensorData;
-use std::error::Error;
+use crate::shared::types::sensor_data::{SensorData, SensorDataBuilder};
 use std::num::ParseFloatError;
-use std::option;
 
 const RAW_DATA_SENSOR_INDEX: u32 = 5;
 
@@ -24,7 +22,7 @@ pub fn parse_raw_sensor_data(
 
     let property_error_message = format!("property error. Input line: {}", &line);
 
-    let humidity: f32 = trim_property(
+    let humidity_in_percent: f32 = trim_property(
         properties
             .next()
             .ok_or_else(|| RunnerError::new(property_error_message.clone()))?,
@@ -42,7 +40,7 @@ pub fn parse_raw_sensor_data(
             .ok_or_else(|| RunnerError::new(property_error_message.clone()))?,
         " Bq/m3",
     )?;
-    let temperature: f32 = trim_property(
+    let temperature_in_celsius: f32 = trim_property(
         properties
             .next()
             .ok_or_else(|| RunnerError::new(property_error_message.clone()))?,
@@ -67,16 +65,17 @@ pub fn parse_raw_sensor_data(
         " ppb",
     )?;
 
-    Ok(SensorData::new(
+    Ok(SensorDataBuilder {
         timestamp,
-        temperature,
-        humidity,
+        temperature_in_celsius,
+        humidity_in_percent,
         atmospheric_pressure,
         co2,
         voc,
         radon_short_term_average,
         radon_long_term_average,
-    ))
+    }
+    .into())
 }
 
 fn trim_property(input: &str, remove_unit: &str) -> Result<f32, ParseFloatError> {

@@ -1,7 +1,7 @@
 use crate::runner::runner::{RunnerError, RunnerErrorResult};
 use crate::shared::types::sensor_data;
 use crate::shared::types::sensor_data::SensorData;
-use std::fs::{DirEntry, OpenOptions};
+use std::fs::OpenOptions;
 use std::io::Read;
 use std::path::PathBuf;
 
