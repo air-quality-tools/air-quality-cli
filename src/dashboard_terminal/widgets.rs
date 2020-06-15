@@ -176,7 +176,7 @@ fn sensor_quality_into_color(sensor_quality: &SensorQuality) -> Color {
         SensorQuality::Good => Color::Green,
         SensorQuality::Bad => Color::Yellow,
         SensorQuality::Terrible => Color::Red,
-        SensorQuality::DependsOnContext => Color::Blue,
+        SensorQuality::DependsOnContext => Color::LightBlue,
     }
 }
 

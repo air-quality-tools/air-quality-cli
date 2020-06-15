@@ -4,13 +4,18 @@ use std::error::Error;
 use std::num::ParseFloatError;
 use std::option;
 
+const RAW_DATA_SENSOR_INDEX: u32 = 5;
+
 pub fn parse_raw_sensor_data(
     timestamp: chrono::DateTime<chrono::Utc>,
     raw_data: &str,
 ) -> Result<SensorData, RunnerError> {
-    let line: &str = raw_data.lines().nth(6).ok_or_else(|| {
-        RunnerError::new("Failed to read stdin data from Python reader script".to_owned())
-    })?;
+    let line: &str = raw_data
+        .lines()
+        .nth(RAW_DATA_SENSOR_INDEX as usize)
+        .ok_or_else(|| {
+            RunnerError::new("Failed to read stdin data from Python reader script".to_owned())
+        })?;
 
     let mut properties = line
         .trim_start_matches('[')

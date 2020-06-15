@@ -2,7 +2,6 @@ use crate::runner::bluetooth::restart_bluetooth;
 use crate::runner::parser::parse_raw_sensor_data;
 use crate::runner::python_dependency::create_python_file;
 use crate::shared::types::sensor_data::SensorData;
-use crate::utils::timeout;
 use chrono::prelude::*;
 use log::info;
 use std::error::Error;
@@ -11,8 +10,9 @@ use std::fs::{File, OpenOptions};
 use std::io::{ErrorKind, Read, Write};
 use std::num::ParseFloatError;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::process::Stdio;
+use std::process::{Command, ExitStatus};
+use std::str::from_utf8;
 use std::thread::sleep;
 use std::time::Duration;
 
@@ -83,7 +83,7 @@ impl Error for RunnerError {}
 
 pub fn fetch_sensor_data(
     python_executable_path: &Path,
-    serial_number: &u32,
+    serial_number: u32,
 ) -> Result<SensorData, RunnerError> {
     let sensor_data_raw = generate_sensor_data_retry(python_executable_path, serial_number)?;
     let time_now = chrono::Utc::now();
@@ -129,7 +129,7 @@ impl Runner {
         let device_serial_number = self.device_serial_number;
         loop {
             let sensor_data_raw =
-                fetch_sensor_data(self.python_executable_path(), &device_serial_number);
+                fetch_sensor_data(self.python_executable_path(), device_serial_number);
 
             if let Err(error) = &sensor_data_raw {
                 eprintln!(
@@ -193,56 +193,37 @@ impl Runner {
     }
 }
 
-fn generate_sensor_data(
+fn generate_sensor_data_raw(
     python_executable_path: &Path,
-    serial_number: &u32,
+    serial_number: u32,
 ) -> Result<String, RunnerError> {
-    let mut reader_process = Command::new("sudo")
-        // .stdin(Stdio::null())
+    let reader_process = Command::new("sudo")
         .stdout(Stdio::piped())
-        // .stderr(Stdio::inherit())
-        // .env_clear() // TODO: LANG=en_US.UTF-8, PYTHONIOENCODING=utf-8
+        .stderr(Stdio::piped())
         .arg("-k")
         .arg("--")
         .arg("python")
         .arg(python_executable_path)
-        // .arg("./read_waveplus.py")
         .arg(serial_number.to_string())
         .arg(READER_SAMPLE_PERIOD_IN_SECONDS.to_string())
         .spawn()?;
 
-    return smol::run(async {
-        let output = timeout(Duration::from_secs(10), async {
-            reader_process.wait_with_output()
-        })
-        .await?;
+    let output = reader_process.wait_with_output()?;
 
-        let output_str = std::str::from_utf8(&output.stdout)?;
+    if output.status.success() == false {
+        return Err(RunnerError::new(
+            "Failed to get input from the python script".to_string(),
+        ));
+    }
 
-        if output_str.lines().count() <= 5 {
-            return Err(RunnerError::new(
-                "Failed to get input from the python script".to_string(),
-            ));
-        }
+    let output_str = from_utf8(&output.stdout)?;
 
-        Ok(output_str.to_string())
-    });
-
-    // let output = reader_process.wait_with_output()?;
-    // let output_str = std::str::from_utf8(&output.stdout)?;
-    //
-    // if output_str.lines().count() <= 5 {
-    //     return Err(RunnerError::new(
-    //         "Failed to get input from the python script".to_string(),
-    //     ));
-    // }
-    //
-    // Ok(output_str.to_string())
+    Ok(output_str.to_owned())
 }
 
 fn generate_sensor_data_retry(
     python_executable_path: &Path,
-    serial_number: &u32,
+    serial_number: u32,
 ) -> Result<String, RunnerError> {
     let max_error_passes: u8 = 3;
 
@@ -254,14 +235,15 @@ fn generate_sensor_data_retry(
             sleep(Duration::from_secs(error_pass as u64))
         }
 
-        let generated_sensor_data = generate_sensor_data(python_executable_path, serial_number);
+        let generated_sensor_data_raw =
+            generate_sensor_data_raw(python_executable_path, serial_number);
 
-        if let Ok(sensor_data) = generated_sensor_data {
-            return Ok(sensor_data);
+        if let Ok(sensor_data_raw) = generated_sensor_data_raw {
+            return Ok(sensor_data_raw);
         } else {
             eprintln!(
                 "[GENERATE SENSOR DATA ERROR] {:#?}",
-                generated_sensor_data.err()
+                generated_sensor_data_raw.err()
             )
         }
     }
