@@ -1,4 +1,3 @@
-use std::fs::File;
 use std::io::Write;
 use tempfile::NamedTempFile;
 
@@ -9,7 +8,7 @@ pub fn create_python_file() -> std::io::Result<NamedTempFile> {
         .suffix(".py")
         .tempfile()
         .unwrap();
-    // let mut file = File::create(PYTHON_FILENAME)?;
+
     python_temp.write_all(python_dependency.as_ref())?;
-    return Ok(python_temp);
+    Ok(python_temp)
 }

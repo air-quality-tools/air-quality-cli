@@ -6,6 +6,7 @@ use crate::utils::timeout;
 use chrono::prelude::*;
 use log::info;
 use std::error::Error;
+use std::fmt;
 use std::fs::{File, OpenOptions};
 use std::io::{ErrorKind, Read, Write};
 use std::num::ParseFloatError;
@@ -14,10 +15,10 @@ use std::process::Command;
 use std::process::Stdio;
 use std::thread::sleep;
 use std::time::Duration;
-use std::{thread, time};
-use tempfile::NamedTempFile;
 
 const READER_SAMPLE_PERIOD_IN_SECONDS: u32 = 300;
+
+pub type RunnerErrorResult<T> = Result<T, RunnerError>;
 
 #[derive(Debug)]
 pub struct RunnerError {
@@ -38,8 +39,20 @@ impl RunnerError {
     }
 }
 
+impl<T> Into<RunnerErrorResult<T>> for RunnerError {
+    fn into(self) -> RunnerErrorResult<T> {
+        Err(self)
+    }
+}
+
 impl From<std::io::Error> for RunnerError {
     fn from(_: std::io::Error) -> Self {
+        RunnerError::default()
+    }
+}
+
+impl From<&mut std::io::Error> for RunnerError {
+    fn from(_: &mut std::io::Error) -> Self {
         RunnerError::default()
     }
 }
@@ -56,22 +69,19 @@ impl From<ParseFloatError> for RunnerError {
     }
 }
 
-pub async fn fetch_sensor_data(
-    python_executable_path: &Path,
-    serial_number: &u32,
-) -> Result<SensorData, RunnerError> {
-    let sensor_data_raw = generate_sensor_data(python_executable_path, serial_number)?;
-    let time_now = chrono::Utc::now();
-
-    parse_raw_sensor_data(time_now, &sensor_data_raw).map_err(|_| {
-        RunnerError::new(format!(
-            "failed to parse raw sensor data: {}",
-            &sensor_data_raw
-        ))
-    })
+impl fmt::Display for RunnerError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(message) = &self.message {
+            write!(f, "[RunnerError]! {}", message)
+        } else {
+            write!(f, "Runner error without a message")
+        }
+    }
 }
 
-pub fn fetch_sensor_data_sync(
+impl Error for RunnerError {}
+
+pub fn fetch_sensor_data(
     python_executable_path: &Path,
     serial_number: &u32,
 ) -> Result<SensorData, RunnerError> {
@@ -93,7 +103,7 @@ pub struct Runner {
 }
 
 impl Runner {
-    pub fn new(output_dir_path: PathBuf, serial_number: u32) -> Result<Self, Box<dyn Error>> {
+    pub fn new(output_dir_path: PathBuf, serial_number: u32) -> RunnerErrorResult<Runner> {
         let python_executable = create_python_file()?;
 
         Ok(Runner {
@@ -107,14 +117,7 @@ impl Runner {
         &self.python_executable.path()
     }
 
-    pub fn run(&self) {
-        // let is_sudo = running_as_privileged_user_check();
-        //
-        // if is_sudo == false {
-        //     eprintln!("Sudo not detected. This program needs to run as sudo because it needs bluetooth access. Restart with 'sudo !!'. ");
-        //     return;
-        // }
-
+    pub fn run(&self) -> RunnerErrorResult<()> {
         info!(
             "Running Airthings sensor data for devices with serial number: {:?}",
             self.device_serial_number
@@ -126,7 +129,7 @@ impl Runner {
         let device_serial_number = self.device_serial_number;
         loop {
             let sensor_data_raw =
-                fetch_sensor_data_sync(self.python_executable_path(), &device_serial_number);
+                fetch_sensor_data(self.python_executable_path(), &device_serial_number);
 
             if let Err(error) = &sensor_data_raw {
                 eprintln!(
@@ -143,7 +146,7 @@ impl Runner {
                     device_serial_number,
                     sensor_data.to_csv()
                 );
-                self.create_or_append_sensor_data_file(sensor_data, &device_serial_number);
+                self.create_or_append_sensor_data_file(sensor_data, device_serial_number)?;
             }
             sleep(Duration::from_secs(60 * 5))
         }
@@ -152,8 +155,8 @@ impl Runner {
     fn create_or_append_sensor_data_file(
         &self,
         sensor_data: SensorData,
-        device_serial_number: &u32,
-    ) {
+        device_serial_number: u32,
+    ) -> RunnerErrorResult<()> {
         let filename_date_formatted = sensor_data.timestamp().format("%Y-%m-%d");
         let string = format!(
             "waveplus_data_sn_{}_{}.txt",
@@ -168,7 +171,7 @@ impl Runner {
 
         match append_file.as_mut() {
             Ok(file) => {
-                file.write(format!("{}\n", sensor_data.to_csv()).as_bytes());
+                file.write_all(format!("{}\n", sensor_data.to_csv()).as_bytes())?;
             }
             Err(error) if error.kind() == ErrorKind::NotFound => {
                 OpenOptions::new()
@@ -177,29 +180,17 @@ impl Runner {
                     .open(filepath)
                     .as_mut()
                     .map(|file| {
-                        file.write(
+                        file.write_all(
                             format!("{}\n", sensor_data.to_csv_with_header(device_serial_number))
                                 .as_bytes(),
                         )
-                    })
-                    .unwrap()
-                    .unwrap();
+                    })??;
             }
             Err(_) => {}
         };
+
+        Ok(())
     }
-}
-
-fn running_as_privileged_user_check() -> bool {
-    let output = Command::new("id")
-        .stdout(Stdio::piped())
-        .arg("-u")
-        .spawn()
-        .unwrap()
-        .wait_with_output()
-        .unwrap();
-
-    std::str::from_utf8(&output.stdout).unwrap().trim() == "0"
 }
 
 fn generate_sensor_data(

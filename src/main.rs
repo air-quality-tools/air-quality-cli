@@ -124,10 +124,15 @@ fn runner_subcommand(opt: RunnerOpt) -> Result<(), Box<dyn Error>> {
     let data_dir_path = get_data_path(opt.data_dir_path);
     start_data_generator(data_dir_path, opt.serial_number)?;
 
-    return Ok(());
+    Ok(())
 }
 
 fn gui_subcommand(opt: GuiOpt) {
     let data_dir_path = get_data_path(opt.data_dir_path);
-    start_gui(data_dir_path);
+
+    let gui_result = start_gui(data_dir_path);
+
+    if gui_result.is_err() {
+        eprintln!("The terminal GUI failed to start/run");
+    }
 }

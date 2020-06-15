@@ -8,12 +8,14 @@ pub fn parse_raw_sensor_data(
     timestamp: chrono::DateTime<chrono::Utc>,
     raw_data: &str,
 ) -> Result<SensorData, RunnerError> {
-    let mut line: &str = raw_data.lines().skip(5).next().unwrap();
+    let line: &str = raw_data.lines().nth(6).ok_or_else(|| {
+        RunnerError::new("Failed to read stdin data from Python reader script".to_owned())
+    })?;
 
     let mut properties = line
-        .trim_start_matches("[")
-        .trim_end_matches("]")
-        .split(",");
+        .trim_start_matches('[')
+        .trim_end_matches(']')
+        .split(',');
 
     let property_error_message = format!("property error. Input line: {}", &line);
 

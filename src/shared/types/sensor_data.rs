@@ -69,6 +69,7 @@ impl SensorData {
         self.radon_short_term_average
     }
 
+    #[allow(dead_code)]
     pub fn radon_long_term_average(&self) -> f32 {
         self.radon_long_term_average
     }
@@ -100,6 +101,7 @@ impl SensorData {
         SensorQuality::radon_quality(self.radon_short_term_average.round() as u32)
     }
 
+    #[allow(dead_code)]
     pub fn radon_long_term_quality(&self) -> SensorQuality {
         SensorQuality::radon_quality(self.radon_long_term_average.round() as u32)
     }
@@ -136,7 +138,7 @@ impl SensorData {
         elements.join(",").to_string()
     }
 
-    pub fn to_csv_with_header(&self, device_serial_number: &u32) -> String {
+    pub fn to_csv_with_header(&self, device_serial_number: u32) -> String {
         [csv_header(device_serial_number), self.to_csv()]
             .join("\n")
             .to_string()
@@ -160,7 +162,7 @@ impl SensorData {
     }
 }
 
-pub fn csv_header(device_serial_number: &u32) -> String {
+pub fn csv_header(device_serial_number: u32) -> String {
     [
         "Timestamp",
         "Temperature (C)",

@@ -14,6 +14,7 @@ use tui::backend::{Backend, CrosstermBackend};
 use tui::layout::{Constraint, Direction, Layout};
 use tui::widgets::{Block, Borders};
 use tui::Terminal;
+use crate::dashboard_terminal::app_error::AppErrorResult;
 
 #[derive(Debug)]
 pub enum AppState {
@@ -31,8 +32,8 @@ pub struct App<B: Backend> {
 }
 
 impl<B: Backend> App<B> {
-    pub fn new(backend: B, output_dir_path: PathBuf) -> Result<Self, io::Error> {
-        let mut terminal = Terminal::new(backend)?;
+    pub fn new(backend: B, output_dir_path: PathBuf) -> AppErrorResult<Self> {
+        let terminal = Terminal::new(backend)?;
         Ok(Self {
             terminal,
             state: AppState::Loading,
@@ -103,7 +104,7 @@ impl<B: Backend> App<B> {
     fn update_data(&mut self) {
         let data = domain::read_latest_sensor_data_from_directory(&self.output_dir_path);
 
-        if let Some(sensor_data) = data {
+        if let Ok(sensor_data) = data {
             self.state = AppState::Dashboard(sensor_data);
         } else {
             self.state = AppState::Error;
