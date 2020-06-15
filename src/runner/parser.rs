@@ -1,4 +1,4 @@
-use crate::runner::runner::RunnerError;
+use crate::runner::error::RunnerError;
 use crate::shared::types::sensor_data::{SensorData, SensorDataBuilder};
 use std::num::ParseFloatError;
 
