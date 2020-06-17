@@ -1,5 +1,13 @@
-use crate::file_sync::error::{SynchronizeRunnerError, SynchronizeRunnerErrorResult};
+use crate::file_sync::file_service::{
+    fetch_metadata_local, fetch_metadata_remote, sync_remote_files_to_local,
+};
+use crate::file_sync::types::error::{SynchronizeRunnerError, SynchronizeRunnerErrorResult};
+use crate::file_sync::types::metadata::{
+    reduce_remote_metadata_list_to_modified_or_not_exist_local, FileMetadata, FileMetadataBuilder,
+};
+use chrono::Utc;
 use ssh2::{Channel, Session};
+use std::fs::{metadata, read_dir};
 use std::io::Read;
 use std::net::TcpStream;
 use std::path::PathBuf;
@@ -55,7 +63,24 @@ impl SynchronizeRunner {
     ) -> SynchronizeRunnerErrorResult<()> {
         let session = self.authenticate(remote_password)?;
 
-        fetch_metadata_remote(session.channel_session().unwrap(), &self.remote_dir_path);
+        let local_metadata = fetch_metadata_local(&self.local_dir_path)?;
+        let remote_metadata = fetch_metadata_remote(&session, &self.remote_dir_path)?;
+
+        let new_or_changed_list: Vec<String> =
+            reduce_remote_metadata_list_to_modified_or_not_exist_local(
+                &remote_metadata,
+                &local_metadata,
+            )
+            .iter()
+            .map(|metadata| metadata.file_name().to_owned())
+            .collect();
+
+        sync_remote_files_to_local(
+            &session,
+            &self.remote_dir_path,
+            &self.local_dir_path,
+            &new_or_changed_list,
+        )?;
 
         Ok(())
     }
@@ -92,15 +117,3 @@ impl SynchronizeRunner {
         Ok(session)
     }
 }
-
-fn fetch_metadata_remote(mut channel: Channel, remote_dir_path: &str) {
-    let cmd = format!("cd {} && ls", remote_dir_path);
-    channel.exec(&cmd).unwrap();
-    let mut s = String::new();
-    channel.read_to_string(&mut s).unwrap();
-    println!("{}", s);
-    channel.wait_close().unwrap();
-    println!("{}", channel.exit_status().unwrap());
-}
-
-fn fetch_metadata_local(local_dir_path: &PathBuf) {}

@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::shared::types::sensor_quality::SensorQuality;
+    use std::str::from_utf8;
 
     #[test]
     fn temperature_quality() {

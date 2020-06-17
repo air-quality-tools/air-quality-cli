@@ -1,6 +1,8 @@
 use std::error::Error;
+use std::ffi::OsString;
 use std::fmt;
 use std::fmt::Formatter;
+use std::str::Utf8Error;
 
 pub type SynchronizeRunnerErrorResult<T> = Result<T, SynchronizeRunnerError>;
 
@@ -46,6 +48,18 @@ impl From<std::io::Error> for SynchronizeRunnerError {
 
 impl From<ssh2::Error> for SynchronizeRunnerError {
     fn from(err: ssh2::Error) -> Self {
+        Self::new(err.to_string())
+    }
+}
+
+impl From<std::ffi::OsString> for SynchronizeRunnerError {
+    fn from(_: OsString) -> Self {
+        Self::new("Could not convert OsString to generic String".to_owned())
+    }
+}
+
+impl From<std::str::Utf8Error> for SynchronizeRunnerError {
+    fn from(err: Utf8Error) -> Self {
         Self::new(err.to_string())
     }
 }

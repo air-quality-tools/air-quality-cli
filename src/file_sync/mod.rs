@@ -1,4 +1,3 @@
-use crate::file_sync::error::SynchronizeRunnerErrorResult;
-
-pub mod error;
 pub mod synchronize;
+pub mod types;
+pub mod file_service;
