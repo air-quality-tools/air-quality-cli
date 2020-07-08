@@ -1,5 +1,7 @@
 # Air quality cli
 
+Tools for checking air quality. 
+Supporting Airthings products, but not affiliated with the Airthings company. 
 
 ## TODO
 
