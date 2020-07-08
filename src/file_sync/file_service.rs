@@ -1,9 +1,9 @@
-use crate::file_sync::types::error::{SynchronizeRunnerError, SynchronizeRunnerErrorResult};
-use crate::file_sync::types::metadata::{FileMetadata, FileMetadataBuilder};
+use crate::file_sync::types::error::SynchronizeRunnerErrorResult;
+use crate::file_sync::types::metadata::FileMetadata;
 use ssh2::{Channel, Session};
-use std::fs::{read_dir, File, OpenOptions};
+use std::fs::{read_dir, OpenOptions};
 use std::io::{Read, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::str::from_utf8;
 
 pub fn fetch_metadata_remote(

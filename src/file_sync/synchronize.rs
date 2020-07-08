@@ -2,15 +2,13 @@ use crate::file_sync::file_service::{
     fetch_metadata_local, fetch_metadata_remote, sync_remote_files_to_local,
 };
 use crate::file_sync::types::error::{SynchronizeRunnerError, SynchronizeRunnerErrorResult};
-use crate::file_sync::types::metadata::{
-    reduce_remote_metadata_list_to_modified_or_not_exist_local, FileMetadata, FileMetadataBuilder,
-};
-use chrono::Utc;
-use ssh2::{Channel, Session};
-use std::fs::{metadata, read_dir};
-use std::io::Read;
+use crate::file_sync::types::metadata::reduce_remote_metadata_list_to_modified_or_not_exist_local;
+use chrono::Local;
+use ssh2::Session;
 use std::net::TcpStream;
 use std::path::PathBuf;
+use std::thread::sleep;
+use std::time::Duration;
 
 pub struct SynchronizeRunner {
     local_dir_path: PathBuf,
@@ -57,12 +55,27 @@ impl SynchronizeRunner {
         format!("{}:{}", self.remote_host, self.remote_port)
     }
 
-    pub fn sync_remote_to_local(
+    pub fn sync_remote_to_local_loop(
         &self,
         remote_password: String,
+        sleep_duration: Duration,
     ) -> SynchronizeRunnerErrorResult<()> {
         let session = self.authenticate(remote_password)?;
 
+        loop {
+            println!(
+                "[{}] Syncing remote files to local, with loop duration: {}s",
+                chrono::Utc::now()
+                    .with_timezone(&Local)
+                    .format("%Y-%m-%d %H:%M"),
+                sleep_duration.as_secs()
+            );
+            self.sync_remote_to_local_once(&session)?;
+            sleep(sleep_duration);
+        }
+    }
+
+    fn sync_remote_to_local_once(&self, session: &Session) -> SynchronizeRunnerErrorResult<()> {
         let local_metadata = fetch_metadata_local(&self.local_dir_path)?;
         let remote_metadata = fetch_metadata_remote(&session, &self.remote_dir_path)?;
 
@@ -85,9 +98,9 @@ impl SynchronizeRunner {
         Ok(())
     }
 
-    fn authenticate(&self, remote_password: String) -> SynchronizeRunnerErrorResult<Session> {
+    pub fn authenticate(&self, remote_password: String) -> SynchronizeRunnerErrorResult<Session> {
         // Connect to the local SSH server
-        let tcp = TcpStream::connect(self.remote_host_and_port()).map_err(|err| {
+        let tcp = TcpStream::connect(self.remote_host_and_port()).map_err(|_err| {
             SynchronizeRunnerError::new(format!(
                 "Could not connect to SSH server {}",
                 self.remote_host_and_port()

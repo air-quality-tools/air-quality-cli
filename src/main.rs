@@ -1,9 +1,12 @@
 mod dashboard_terminal;
 mod device;
+
+#[cfg(target_os = "windows")]
 mod file_sync;
 mod runner;
 mod shared;
 
+#[cfg(target_os = "windows")]
 use crate::file_sync::synchronize::{SynchronizeRunner, SynchronizeRunnerBuilder};
 use dashboard_terminal::start_gui;
 use flexi_logger::{opt_format, Age, Cleanup, Criterion, Duplicate, Naming};
@@ -11,6 +14,7 @@ use runner::start_data_generator;
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 use structopt::StructOpt;
 
 #[derive(StructOpt)]
@@ -29,6 +33,7 @@ struct Opt {
 enum Command {
     Runner(RunnerOpt),
     Gui(GuiOpt),
+    #[cfg(target_os = "windows")]
     FileSync(FileSyncOpt),
 }
 
@@ -46,6 +51,7 @@ struct GuiOpt {
     data_dir_path: Option<PathBuf>,
 }
 
+#[cfg(target_os = "windows")]
 #[derive(Debug, StructOpt)]
 struct FileSyncOpt {
     #[structopt(short = "l", long = "local-data-dir", parse(from_os_str))]
@@ -69,6 +75,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     match opt.command {
         Command::Runner(command_opt) => runner_subcommand(command_opt)?,
         Command::Gui(command_opt) => gui_subcommand(command_opt),
+        #[cfg(target_os = "windows")]
         Command::FileSync(command_opt) => file_sync_subcommand(command_opt),
     };
 
@@ -153,6 +160,7 @@ fn gui_subcommand(opt: GuiOpt) {
     }
 }
 
+#[cfg(target_os = "windows")]
 fn file_sync_subcommand(opt: FileSyncOpt) {
     let local_dir_path = get_data_path(opt.local_data_dir_path);
     let remote_dir_path = opt
@@ -180,15 +188,15 @@ fn file_sync_subcommand(opt: FileSyncOpt) {
     let remote_password = rpassword::read_password_from_tty(Some("Remote password: "));
 
     match remote_password {
-        Ok(remote_password) => {
-            std::process::exit(match runner.sync_remote_to_local(remote_password) {
+        Ok(remote_password) => std::process::exit(
+            match runner.sync_remote_to_local_loop(remote_password, Duration::from_secs(60 * 10)) {
                 Ok(_) => 0,
                 Err(err) => {
                     eprintln!("Error running the file sync: {}", err);
                     1
                 }
-            })
-        }
+            },
+        ),
         Err(_) => {
             eprintln!("Failed to get password");
             std::process::exit(1);

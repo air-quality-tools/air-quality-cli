@@ -1,12 +1,11 @@
 use crate::file_sync::types::error::SynchronizeRunnerErrorResult;
-use chrono::{DateTime, Utc};
 use sha1::digest::generic_array::GenericArray;
 use sha1::{Digest, Sha1};
 use std::fs::{DirEntry, File};
 use std::io::{BufReader, Read};
 use std::path::PathBuf;
 
-type DateTimeUtc = DateTime<Utc>;
+// type DateTimeUtc = DateTime<Utc>;
 
 #[derive(Debug, Clone)]
 pub struct FileMetadata {

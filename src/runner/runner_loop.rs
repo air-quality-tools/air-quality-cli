@@ -50,6 +50,7 @@ impl Runner {
                     device_serial_number,
                     error
                 );
+                return Err(error.clone());
             }
 
             if let Ok(sensor_data) = sensor_data_raw {

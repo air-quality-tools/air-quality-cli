@@ -4,7 +4,7 @@ use std::num::ParseFloatError;
 
 pub type RunnerErrorResult<T> = Result<T, RunnerError>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RunnerError {
     pub message: Option<String>,
 }

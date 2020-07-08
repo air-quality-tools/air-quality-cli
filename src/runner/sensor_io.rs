@@ -2,11 +2,12 @@ use crate::runner::bluetooth::restart_bluetooth;
 use crate::runner::error::RunnerError;
 use crate::runner::parser::parse_raw_sensor_data;
 use crate::shared::types::sensor_data::SensorData;
+use std::io::Read;
 use std::path::Path;
 use std::process::{Command, Stdio};
-use std::str::from_utf8;
 use std::thread::sleep;
 use std::time::Duration;
+use wait_timeout::ChildExt;
 
 const READER_SAMPLE_PERIOD_IN_SECONDS: u32 = 300;
 
@@ -39,8 +40,11 @@ fn generate_sensor_data_retry(
             sleep(Duration::from_secs(error_pass as u64))
         }
 
-        let generated_sensor_data_raw =
-            generate_sensor_data_raw(python_executable_path, serial_number);
+        let generated_sensor_data_raw = generate_sensor_data_raw(
+            python_executable_path,
+            serial_number,
+            Duration::from_secs(60),
+        );
 
         if let Ok(sensor_data_raw) = generated_sensor_data_raw {
             return Ok(sensor_data_raw);
@@ -61,8 +65,9 @@ fn generate_sensor_data_retry(
 fn generate_sensor_data_raw(
     python_executable_path: &Path,
     serial_number: u32,
+    timeout_duration: Duration,
 ) -> Result<String, RunnerError> {
-    let reader_process = Command::new("sudo")
+    let mut reader_process = Command::new("sudo")
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .arg("-k")
@@ -73,15 +78,32 @@ fn generate_sensor_data_raw(
         .arg(READER_SAMPLE_PERIOD_IN_SECONDS.to_string())
         .spawn()?;
 
-    let output = reader_process.wait_with_output()?;
+    let error_msg = match reader_process.wait_timeout(timeout_duration) {
+        Ok(Some(exit_status)) if exit_status.success() => None,
+        Ok(None) => Some("Python script timed out".to_string()),
+        _ => {
+            let _best_effort = reader_process.kill();
+            Some("Failed to get input from the python script".to_string())
+        }
+    };
 
-    if output.status.success() == false {
-        return Err(RunnerError::new(
-            "Failed to get input from the python script".to_string(),
-        ));
+    if let Some(error_msg) = error_msg {
+        return Err(RunnerError::new(error_msg));
     }
 
-    let output_str = from_utf8(&output.stdout)?;
+    if let Some(mut child_stdout) = reader_process.stdout {
+        let stdout = {
+            let mut data = String::new();
+            child_stdout.read_to_string(&mut data)?;
+            data
+        };
 
-    Ok(output_str.to_owned())
+        if stdout.is_empty() == false {
+            return Ok(stdout);
+        }
+    }
+
+    Err(RunnerError::new(
+        "Failed to get input from the python script".to_owned(),
+    ))
 }
