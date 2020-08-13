@@ -3,8 +3,11 @@
 Community tools for checking air quality. 
 For Airthings products, but not affiliated with the Airthings company. 
 
+[Releases](https://github.com/air-quality-tools/air-quality-cli/releases) | [Latest release](https://github.com/air-quality-tools/air-quality-cli/releases/tag/0.2.0)
+
 ![Screenshot of air quality TUI](https://raw.githubusercontent.com/air-quality-tools/air-quality-cli/master/resources/air-quality-tui.png)
 
+Image: TUI dashboard running on Respberry Pi 3 with data from the Wave Plus sensor
 
 ## Features
 
